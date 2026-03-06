@@ -23,9 +23,29 @@ if "final_article" not in st.session_state:
 # Sidebar for configuration
 with st.sidebar:
     st.header("⚙️ Configuration")
-    user_api_key = st.text_input("Groq API Key", type="password", help="Get your API key from Groq Console")
+    
+    selected_model = st.selectbox(
+        "Select Model",
+        [
+            "Gemini 3 Flash",
+            "Gemini 2.5 Flash",
+            "Gemini 2.5 Flash Lite",
+            "Gemini 3.1 Flash Lite",
+            "Groq openai gpt oss 120b"
+        ]
+    )
+    
+    api_key_label = "Groq API Key" if "Groq" in selected_model else "Gemini API Key"
+    user_api_key = st.text_input(api_key_label, type="password", help=f"Provide your {api_key_label}")
+    
     if user_api_key:
-        os.environ["GROQ_API_KEY"] = user_api_key
+        if "Groq" in selected_model:
+            os.environ["GROQ_API_KEY"] = user_api_key
+        else:
+            os.environ["GEMINI_API_KEY"] = user_api_key
+            os.environ["GOOGLE_API_KEY"] = user_api_key
+            
+    st.session_state.selected_model = selected_model
         
     st.markdown("---")
     st.info("""
@@ -48,12 +68,13 @@ if st.session_state.phase == "setup":
 
     if st.button("Generate Outline 🧠", type="primary"):
         if not user_api_key:
-            st.error("Please provide your Gemini API Key in the sidebar.")
+            st.error("Please provide your API Key in the sidebar.")
         elif not topic_input:
             st.warning("Please enter a topic to research.")
         else:
             initial_state = {
                 "topic": topic_input,
+                "selected_model": st.session_state.selected_model,
                 "research_queries": [],
                 "gathered_info": [],
                 "outline_sections": [],
