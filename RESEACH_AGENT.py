@@ -5,10 +5,25 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_groq import ChatGroq
 from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+def get_llm(model_name: str, temperature: float = 0.2):
+    if not model_name or "Groq" in model_name:
+        return ChatGroq(model="openai/gpt-oss-120b", temperature=temperature)
+    
+    mapping = {
+        "Gemini 3 Flash": "gemini-3.0-flash",
+        "Gemini 2.5 Flash": "gemini-2.5-flash",
+        "Gemini 2.5 Flash Lite": "gemini-2.5-flash-lite",
+        "Gemini 3.1 Flash Lite": "gemini-3.1-flash-lite"
+    }
+    actual_model = mapping.get(model_name, "gemini-1.5-flash")
+    return ChatGoogleGenerativeAI(model=actual_model, temperature=temperature)
 
 # 1. Define the state for the graph
 class AgentState(TypedDict):
     topic: str
+    selected_model: str
     research_queries: List[str]
     gathered_info: List[str]
     outline_sections: List[str]
@@ -19,7 +34,7 @@ class AgentState(TypedDict):
 # 2. Add node functions
 def generate_queries(state: AgentState):
     topic = state['topic']
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.2)
+    llm = get_llm(state.get("selected_model", ""), 0.2)
     prompt = f"You are an expert researcher. Generate 5 distinct search queries to deeply research the topic: '{topic}'. Return only the queries separated by newlines, no numbers."
     response = llm.invoke(prompt)
     queries = [q.strip() for q in response.content.split('\n') if q.strip()]
@@ -39,7 +54,7 @@ def conduct_research(state: AgentState):
 def create_outline(state: AgentState):
     topic = state['topic']
     info = "\n\n".join(state["gathered_info"])
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.3)
+    llm = get_llm(state.get("selected_model", ""), 0.3)
     
     prompt = f"""Based on the following research about '{topic}', create a comprehensive outline for a Medium article that takes 10+ minutes to read.
     The article requires EXTREME technical and mathematical depth. Break it down into 6-8 comprehensive sections.
@@ -62,7 +77,7 @@ def write_section(state: AgentState):
     idx = state["current_section_idx"]
     section_topic = state["outline_sections"][idx]
     info = "\n\n".join(state["gathered_info"])
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.4)
+    llm = get_llm(state.get("selected_model", ""), 0.4)
     
     prompt = f"""You are an expert technical writer drafting a comprehensive Medium article piece by piece.
     Topic of the whole article: {state['topic']}
