@@ -12,13 +12,21 @@ def get_llm(model_name: str, temperature: float = 0.2):
         return ChatGroq(model="openai/gpt-oss-120b", temperature=temperature)
     
     mapping = {
-        "Gemini 3 Flash": "gemini-3.0-flash",
-        "Gemini 2.5 Flash": "gemini-2.5-flash",
-        "Gemini 2.5 Flash Lite": "gemini-2.5-flash-lite",
-        "Gemini 3.1 Flash Lite": "gemini-3.1-flash-lite"
+        "Gemini 3 Flash": "gemini-3-flash-preview",
+        "Gemini 2.5 Flash": "gemini-2.5-flash", 
+        "Gemini 2.5 Flash Lite": "gemini-2.5-flash-lite", 
+        "Gemini 3.1 Flash Lite": "gemini-3.1-flash-lite-preview"
     }
     actual_model = mapping.get(model_name, "gemini-1.5-flash")
     return ChatGoogleGenerativeAI(model=actual_model, temperature=temperature)
+
+def extract_text(response) -> str:
+    content = response.content
+    if isinstance(content, list) and len(content) > 0:
+        if isinstance(content[0], dict) and "text" in content[0]:
+            return content[0]["text"]
+        return str(content[0])
+    return str(content)
 
 # 1. Define the state for the graph
 class AgentState(TypedDict):
@@ -37,7 +45,8 @@ def generate_queries(state: AgentState):
     llm = get_llm(state.get("selected_model", ""), 0.2)
     prompt = f"You are an expert researcher. Generate 5 distinct search queries to deeply research the topic: '{topic}'. Return only the queries separated by newlines, no numbers."
     response = llm.invoke(prompt)
-    queries = [q.strip() for q in response.content.split('\n') if q.strip()]
+    text = extract_text(response)
+    queries = [q.strip() for q in text.split('\n') if q.strip()]
     return {"research_queries": queries}
 
 def conduct_research(state: AgentState):
@@ -66,11 +75,12 @@ def create_outline(state: AgentState):
     {info[:15000]}
     """
     response = llm.invoke(prompt)
+    text = extract_text(response)
     try:
-        content = response.content.replace('```json', '').replace('```', '').strip()
+        content = text.replace('```json', '').replace('```', '').strip()
         sections = json.loads(content)
     except Exception:
-        sections = [s for s in response.content.split('\n') if s.strip()]
+        sections = [s for s in text.split('\n') if s.strip()]
     return {"outline_sections": sections, "current_section_idx": 0, "article_sections": []}
 
 def write_section(state: AgentState):
@@ -96,7 +106,8 @@ def write_section(state: AgentState):
     Output ONLY THE MARKDOWN CONTENT for this specific section, do not add introductory or concluding sentences unless it is the intro/conclusion section.
     """
     response = llm.invoke(prompt)
-    new_sections = state.get("article_sections", []) + [response.content]
+    text = extract_text(response)
+    new_sections = state.get("article_sections", []) + [text]
     return {"article_sections": new_sections, "current_section_idx": idx + 1}
 
 def should_continue_writing(state: AgentState):
