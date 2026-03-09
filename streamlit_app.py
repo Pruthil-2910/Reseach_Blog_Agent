@@ -8,7 +8,7 @@ from RESEACH_AGENT import build_graph
 st.set_page_config(page_title="Deep Math Research Agent", page_icon="📝", layout="wide")
 
 st.title("📚 Deep Math & Research Article Writer ✍️")
-st.markdown("Enter a topic and provide your **Groq API key** in the sidebar. The AI agent will thoroughly research the topic online, draft an outline (which you can review and edit), and iteratively write an in-depth article with **deep mathematical formula support**.")
+st.markdown("Enter a topic and provide your **Groq/Gemini API key** in the sidebar. The AI agent will thoroughly research the topic online, draft an outline (which you can review and edit), and iteratively write an in-depth article with **deep mathematical formula support**.")
 
 # Initialize Session States
 if "thread_id" not in st.session_state:
